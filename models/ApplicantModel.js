@@ -55,7 +55,7 @@ const ApplicantSchema = new Schema(
 // "lastname":"abir",
 // "contactnumber":"01951918261",
 // "appliedrole":"designer"
-//
+
 // }
 
 export const Applicant = mongoose.model("Applicant", ApplicantSchema);

@@ -1,49 +1,49 @@
 import express from "express";
 import {
-  HandleCreateApplicant,
-  HandleAllApplicants,
-  HandleApplicant,
-  HandleUpdateApplicant,
-  HandleDeleteApplicant,
-} from "../controllers/ApplicantController.js";
+  HandleAllInterviews,
+  HandleCreateInterview,
+  HandleInterview,
+  HandleUpdateInterview,
+  HandleDeleteInterview,
+} from "../controllers/Interview.controller.js";
 import { VerifyhHRToken } from "../middlewares/Auth.middleware.js";
 import { RoleAuthorization } from "../middlewares/RoleAuth.middleware.js";
 
 const router = express.Router();
 
 router.post(
-  "/create-applicant",
+  "/create-interview",
   VerifyhHRToken,
   RoleAuthorization("HR-Admin"),
-  HandleCreateApplicant
+  HandleCreateInterview
 );
 
 router.get(
   "/all",
   VerifyhHRToken,
   RoleAuthorization("HR-Admin"),
-  HandleAllApplicants
+  HandleAllInterviews
 );
 
 router.get(
-  "/:applicantID",
+  "/:interviewID",
   VerifyhHRToken,
   RoleAuthorization("HR-Admin"),
-  HandleApplicant
+  HandleInterview
 );
 
 router.patch(
-  "/update-applicant",
+  "/update-interview",
   VerifyhHRToken,
   RoleAuthorization("HR-Admin"),
-  HandleUpdateApplicant
+  HandleUpdateInterview
 );
 
 router.delete(
-  "/delete-applicant/:applicantID",
+  "/delete-interview/:interviewID",
   VerifyhHRToken,
   RoleAuthorization("HR-Admin"),
-  HandleDeleteApplicant
+  HandleDeleteInterview
 );
 
 export default router;

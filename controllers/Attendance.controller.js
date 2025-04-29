@@ -202,7 +202,7 @@ export const HandleDeleteAttendance = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Attendance record deleted successfully.",
+      message: "Attendance record deleted successfully",
     });
   } catch (error) {
     return res
