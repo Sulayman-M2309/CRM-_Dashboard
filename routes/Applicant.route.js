@@ -8,9 +8,7 @@ import {
 } from "../controllers/ApplicantController.js";
 import { VerifyhHRToken } from "../middlewares/Auth.middleware.js";
 import { RoleAuthorization } from "../middlewares/RoleAuth.middleware.js";
-
 const router = express.Router();
-
 router.post(
   "/create-applicant",
   VerifyhHRToken,

@@ -18,6 +18,7 @@ import AttendanceRouter from "./routes/Attendance.route.js";
 import RecruitmentRouter from "./routes/Recuritment.route.js";
 import ApplicantRouter from "./routes/Applicant.route.js";
 import InterviewRouter from "./routes/Interview.route.js";
+import GenerateRequestRouter from './routes/GenerateRequest.route.js'
 dotenv.config();
 const app = express();
 app.use(cors());
@@ -38,6 +39,7 @@ app.use("/api/v1/attendance", AttendanceRouter);
 app.use("/api/v1/recruitment", RecruitmentRouter);
 app.use("/api/v1/applicant", ApplicantRouter);
 app.use("/api/v1/interview", InterviewRouter);
+app.use("/api/v1/generate-request", GenerateRequestRouter)
 
 dbConnect();
 const PORT = process.env.PORT || 4040;
