@@ -1,16 +1,11 @@
 import { HumanResources } from "../models/HRModel.js";
+import { Organization } from "../models/OrganizationModel.js";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { GenerateJwtTokenAndSetCookiesHR } from "../utils/generatejwttokenandsetcookies.js";
-import {
-  SendVerificationEmail,
-  SendWelcomeEmail,
-  SendForgotPasswordEmail,
-  SendResetPasswordConfimation,
-} from "../mailtrap/emails.js";
 import { GenerateVerificationToken } from "../utils/generateverificationtoken.js";
-import { Organization } from "../models/OrganizationModel.js";
-
+import sendEmail from "../helpers/sendEmail.js";
+import  SendForgotPasswordEmail  from "../helpers/sendforgotpasswordemail.js";
 export const HandleHRSignup = async (req, res) => {
   try {
     const {
@@ -25,23 +20,28 @@ export const HandleHRSignup = async (req, res) => {
       OrganizationMail,
     } = req.body;
 
-    if (!name || !description || !OrganizationURL || !OrganizationMail) {
-      throw new Error("All Fields are required");
+    // Check for missing required fields
+    if (
+      !name ||
+      !description ||
+      !OrganizationURL ||
+      !OrganizationMail ||
+      !firstname ||
+      !lastname ||
+      !email ||
+      !password ||
+      !contactnumber
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required",
+        type: "signup",
+      });
     }
 
-    if (!firstname || !lastname || !email || !password || !contactnumber) {
-      throw new Error("All Fields are required");
-    }
-
-    const organization = await Organization.findOne({
-      name: name,
-      OrganizationURL: OrganizationURL,
-      OrganizationMail: OrganizationMail,
-    });
-
-    const HR = await HumanResources.findOne({ email: email });
-
-    if (HR) {
+    // Check if HR already exists
+    const existingHR = await HumanResources.findOne({ email });
+    if (existingHR) {
       return res.status(400).json({
         success: false,
         message:
@@ -50,99 +50,77 @@ export const HandleHRSignup = async (req, res) => {
       });
     }
 
-    if (!organization && !HR) {
-      const newOrganization = await Organization.create({
+    // Check for existing organization or create new one
+    let organization = await Organization.findOne({
+      name,
+      OrganizationURL,
+      OrganizationMail,
+    });
+
+    if (!organization) {
+      organization = await Organization.create({
         name,
         description,
         OrganizationURL,
         OrganizationMail,
       });
-
-      const hashedpassword = await bcrypt.hash(password, 10);
-      const verificationcode = GenerateVerificationToken(6);
-
-      const newHR = await HumanResources.create({
-        firstname,
-        lastname,
-        email,
-        password: hashedpassword,
-        contactnumber,
-        role: "HR-Admin",
-        organizationID: newOrganization._id,
-        verificationtoken: verificationcode,
-        verificationtokenexpires: Date.now() + 5 * 60 * 1000,
-      });
-
-      newOrganization.HRs.push(newHR._id);
-      await newOrganization.save();
-
-      GenerateJwtTokenAndSetCookiesHR(
-        res,
-        newHR._id,
-        newHR.role,
-        newOrganization._id
-      );
-      const VerificationEmailStatus = await SendVerificationEmail(
-        email,
-        verificationcode
-      );
-      return res.status(201).json({
-        success: true,
-        message:
-          "Organization Created Successfully & HR Registered Successfully",
-        VerificationEmailStatus: VerificationEmailStatus,
-        type: "signup",
-        HRid: newHR._id,
-      });
     }
 
-    if (organization && !HR) {
-      const hashedpassword = await bcrypt.hash(password, 10);
-      const verificationcode = GenerateVerificationToken(6);
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-      const newHR = await HumanResources.create({
-        firstname,
-        lastname,
-        email,
-        password: hashedpassword,
-        contactnumber,
-        role: "HR-Admin",
-        organizationID: organization._id,
-        verificationtoken: verificationcode,
-        verificationtokenexpires: Date.now() + 5 * 60 * 1000,
-      });
+    // Generate OTP for email verification
+    const verificationCode = GenerateVerificationToken(6);
 
-      organization.HRs.push(newHR._id);
-      await organization.save();
+    // Create new HR
+    const newHR = await HumanResources.create({
+      firstname,
+      lastname,
+      email,
+      password: hashedPassword,
+      contactnumber,
+      role: "HR-Admin",
+      organizationID: organization._id,
+      verificationtoken: verificationCode,
+      verificationtokenexpires: Date.now() + 5 * 60 * 1000, // 5 minutes expiration
+    });
 
-      GenerateJwtTokenAndSetCookiesHR(
-        res,
-        newHR._id,
-        newHR.role,
-        organization._id
-      );
-      const VerificationEmailStatus = await SendVerificationEmail(
-        email,
-        verificationcode
-      );
-      return res.status(201).json({
-        success: true,
-        message: "HR Registered Successfully",
-        type: "signup",
-        VerificationEmailStatus: VerificationEmailStatus,
-        HRid: newHR._id,
-      });
-    }
+    // Add new HR to the organization
+    organization.HRs.push(newHR._id);
+    await organization.save();
+
+    // Generate JWT and set cookies
+    GenerateJwtTokenAndSetCookiesHR(res, newHR._id, newHR.role, organization._id);
+
+    // Send verification email
+    const emailStatus = await sendEmail({
+      to: email,
+      subject: "HR Email Verification",
+      otp: verificationCode,  // Make sure to pass the OTP here
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: organization.isNew
+        ? "Organization Created & HR Registered Successfully"
+        : "HR Registered Successfully",
+      VerificationEmailStatus: emailStatus,
+      type: "signup",
+      HRid: newHR._id,
+    });
   } catch (error) {
-    return res
-      .status(500)
-      .json({ success: false, message: error.message, type: "signup" });
+    // Improved error handling
+    return res.status(500).json({
+      success: false,
+      message: `Error during HR signup: ${error.message}`,
+      type: "signup",
+    });
   }
 };
 
+
 export const HandleHRVerifyEmail = async (req, res) => {
   const { verificationcode } = req.body;
-
   try {
     const HR = await HumanResources.findOne({
       verificationtoken: verificationcode,
@@ -153,7 +131,7 @@ export const HandleHRVerifyEmail = async (req, res) => {
     if (!HR) {
       return res.status(401).json({
         success: false,
-        message: "Invalid or Expired Verifiation Code",
+        message: "Invalid or Expired Verification Code",
         type: "HRverifyemail",
       });
     }
@@ -163,22 +141,25 @@ export const HandleHRVerifyEmail = async (req, res) => {
     HR.verificationtokenexpires = undefined;
     await HR.save();
 
-    const SendWelcomeEmailStatus = await SendWelcomeEmail(
-      HR.email,
-      HR.firstname,
-      HR.lastname,
-      HR.role
-    );
+    // Send Welcome Email after verification
+    const sendEmailStatus = await sendEmail({
+      to: HR.email,
+      subject: "Welcome to the Organization",
+      text: `Hello ${HR.firstname},\n\nYour email has been successfully verified. Welcome to the organization!`,
+    });
+
     return res.status(200).json({
       success: true,
       message: "Email Verified successfully",
-      SendWelcomeEmailStatus: SendWelcomeEmailStatus,
+      sendEmailStatus: sendEmailStatus,
       type: "HRverifyemail",
     });
   } catch (error) {
-    return res
-      .status(500)
-      .json({ success: false, message: error.message, type: "HRverifyemail" });
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+      type: "HRverifyemail",
+    });
   }
 };
 
@@ -190,7 +171,7 @@ export const HandleHRLogin = async (req, res) => {
     if (!HR) {
       return res.status(400).json({
         success: false,
-        message: "Invaild Credentials, Please Add Correct One",
+        message: "Invalid Credentials, Please Add Correct One", // Corrected spelling
         type: "HRLogin",
       });
     }
@@ -200,28 +181,34 @@ export const HandleHRLogin = async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({
         success: false,
-        message: "Invaild Credentials, Please Add Correct One",
+        message: "Invalid Credentials, Please Add Correct One", // Corrected spelling
         type: "HRLogin",
       });
     }
 
-    GenerateJwtTokenAndSetCookiesHR(res, HR._id, HR.role, HR.organizationID);
+    // Generate JWT token and set cookies
+    const token = GenerateJwtTokenAndSetCookiesHR(res, HR._id, HR.role, HR.organizationID);
+    
     HR.lastlogin = new Date();
     await HR.save();
+
     return res.status(200).json({
       success: true,
-      message: "HR Login Successfull",
+      message: "HR Login Successful",  // Corrected spelling
       type: "HRLogin",
+      token,  // Include the token in the response if necessary for front-end
     });
   } catch (error) {
+    console.error(error);  // Log the error for debugging purposes
+    
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error",
-      error: error,
+      message: "Internal Server Error", // General message
       type: "HRLogin",
     });
   }
 };
+
 
 export const HandleHRLogout = async (req, res) => {
   try {
@@ -264,7 +251,9 @@ export const HandleHRCheck = async (req, res) => {
 
 export const HandleHRForgotPassword = async (req, res) => {
   const { email } = req.body;
+
   try {
+    // Ensure HR is found in the correct organization
     const HR = await HumanResources.findOne({
       email: email,
       organizationID: req.ORGID,
@@ -274,48 +263,55 @@ export const HandleHRForgotPassword = async (req, res) => {
     if (!HR) {
       return res.status(404).json({
         success: false,
-        message: "HR Email Does Not Exist Please Enter Correct One",
+        message: "HR Email Does Not Exist, Please Enter Correct One",
         type: "HRforgotpassword",
       });
     }
 
-    const resetToken = crypto.randomBytes(25).toString("hex");
+    // Create a reset password token and set expiration time
+    const resetToken = crypto.randomBytes(25).toString('hex');
     const resetTokenExpires = Date.now() + 1000 * 60 * 60; // 1 hour
 
     HR.resetpasswordtoken = resetToken;
     HR.resetpasswordexpires = resetTokenExpires;
     await HR.save();
 
-    const URL = `${process.env.CLIENT_URL}/auth/HR/resetpassword/${resetToken}`;
-    const SendResetPasswordEmailStatus = await SendForgotPasswordEmail(
-      email,
-      URL
-    );
+    // Generate URL for the password reset page
+    const URL = `${process.env.CLIENT_URL.replace(/\/$/, '')}/auth/HR/resetpassword/${resetToken}`;
+
+    // Send the reset password email
+    const SendResetPasswordEmailStatus = await SendForgotPasswordEmail(email, URL);
+
     return res.status(200).json({
       success: true,
-      message: "Reset Password Email Sent Successfully",
+      message: 'Reset Password Email Sent Successfully',
       SendResetPasswordEmailStatus: SendResetPasswordEmailStatus,
-      type: "HRforgotpassword",
+      type: 'HRforgotpassword',
     });
+
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error",
-      error: error,
-      type: "HRforgotpassword",
+      message: 'Internal Server Error',
+      error: error.message,
+      type: 'HRforgotpassword',
     });
   }
 };
+
+
 
 export const HandleHRResetPassword = async (req, res) => {
   const { token } = req.params;
   const { password } = req.body;
 
   try {
+    // Clear the HRtoken cookie if it exists
     if (req.cookies.HRtoken) {
       res.clearCookie("HRtoken");
     }
 
+    // Find the HR record by reset password token and check if it is still valid
     const HR = await HumanResources.findOne({
       resetpasswordtoken: token,
       resetpasswordexpires: { $gt: Date.now() },
@@ -329,15 +325,27 @@ export const HandleHRResetPassword = async (req, res) => {
       });
     }
 
+    // Validate password strength (e.g., minimum 8 characters)
+    if (password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 8 characters long",
+        resetpassword: false,
+      });
+    }
+
+    // Hash the new password
     const hashedPassword = await bcrypt.hash(password, 10);
     HR.password = hashedPassword;
-    HR.resetpasswordtoken = undefined;
-    HR.resetpasswordexpires = undefined;
+    HR.resetpasswordtoken = undefined; // Invalidate reset token
+    HR.resetpasswordexpires = undefined; // Invalidate expiry
     await HR.save();
 
+    // Send password reset confirmation email
     const SendPasswordResetEmailStatus = await SendResetPasswordConfimation(
       HR.email
     );
+
     return res.status(200).json({
       success: true,
       message: "Password Reset Successfully",
@@ -348,11 +356,12 @@ export const HandleHRResetPassword = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: error,
+      error: error.message,  // Log only message for production
       resetpassword: false,
     });
   }
 };
+
 
 export const HandleHRResetverifyEmail = async (req, res) => {
   const { email } = req.body;
