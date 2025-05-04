@@ -19,6 +19,8 @@ import RecruitmentRouter from "./routes/Recuritment.route.js";
 import ApplicantRouter from "./routes/Applicant.route.js";
 import InterviewRouter from "./routes/Interview.route.js";
 import GenerateRequestRouter from './routes/GenerateRequest.route.js'
+import CorporateCalendarRouter from './routes/CorporateCalendar.route.js'
+import BalanceRouter from './routes/Balance.route.js'
 dotenv.config();
 const app = express();
 app.use(cors());
@@ -40,6 +42,8 @@ app.use("/api/v1/recruitment", RecruitmentRouter);
 app.use("/api/v1/applicant", ApplicantRouter);
 app.use("/api/v1/interview", InterviewRouter);
 app.use("/api/v1/generate-request", GenerateRequestRouter)
+app.use("/api/v1/corporate-calendar", CorporateCalendarRouter)
+app.use("/api/v1/balance", BalanceRouter)
 
 dbConnect();
 const PORT = process.env.PORT || 4040;

@@ -142,6 +142,7 @@ export const HandleHRSignup = async (req, res) => {
 
 export const HandleHRVerifyEmail = async (req, res) => {
   const { verificationcode } = req.body;
+
   try {
     const HR = await HumanResources.findOne({
       verificationtoken: verificationcode,

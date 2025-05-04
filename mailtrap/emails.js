@@ -15,7 +15,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const sender = 'youremail@example.com'; // Your email (Mailtrap's sender email)
+const sender = 'solaymanh33@gmail.com'; // Your email (Mailtrap's sender email)
 
 export const SendVerificationEmail = async (email, verificationcode) => {
   const mailOptions = {

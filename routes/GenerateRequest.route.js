@@ -1,30 +1,27 @@
-import express from 'express';
+import express from "express";
 import {
   HandleAllGenerateRequest,
   HandleCreateGenerateRequest,
   HandleDeleteRequest,
   HandleGenerateRequest,
   HandleUpdateRequestByEmployee,
-  HandleUpdateRequestByHR
-} from '../controllers/GenerateRequest.controller.js';
+  HandleUpdateRequestByHR,
+} from "../controllers/GenerateRequest.controller.js";
 
 import {
   VerifyEmployeeToken,
-  VerifyhHRToken
-} from '../middlewares/Auth.middleware.js';
-
-import { RoleAuthorization } from '../middlewares/RoleAuth.middleware.js';
+  VerifyhHRToken,
+} from "../middlewares/Auth.middleware.js";
+import { RoleAuthorization } from "../middlewares/RoleAuth.middleware.js";
 
 const router = express.Router();
 
-// Employee creates a request
 router.post(
   "/create-request",
   VerifyEmployeeToken,
   HandleCreateGenerateRequest
 );
 
-// HR gets all requests
 router.get(
   "/all",
   VerifyhHRToken,
@@ -32,7 +29,6 @@ router.get(
   HandleAllGenerateRequest
 );
 
-// HR gets a specific request
 router.get(
   "/:requestID",
   VerifyhHRToken,
@@ -40,14 +36,12 @@ router.get(
   HandleGenerateRequest
 );
 
-// Employee updates their own request content
 router.patch(
   "/update-request-content",
   VerifyEmployeeToken,
   HandleUpdateRequestByEmployee
 );
 
-// HR updates request status
 router.patch(
   "/update-request-status",
   VerifyhHRToken,
@@ -55,7 +49,6 @@ router.patch(
   HandleUpdateRequestByHR
 );
 
-// HR deletes a request
 router.delete(
   "/delete-request/:requestID",
   VerifyhHRToken,
